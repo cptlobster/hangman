@@ -1,6 +1,42 @@
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 
 public class Server {
     public static void main(String[] args) {
+
+    }
+
+    /**
+     * Create a game state with the defined word.
+     */
+    private GameState startGame(String word) throws IOException {
+        return new GameState(word);
+    }
+
+    /**
+     * Create a game state with a randomly selected word.
+     */
+    private GameState startGame() throws IOException {
+        return startGame(getRandomWord());
+    }
+
+    /**
+     * Select a random word from our words.txt file.
+     */
+    public String getRandomWord() throws IOException {
+        // RandomAccessFile allows us to efficiently access a random position in a file
+        try (RandomAccessFile file = new RandomAccessFile(new File("words.txt"), "r")) {
+            // pick a random byte in the file to select from and seek to it
+            final long randomLocation = (long) (Math.random() * file.length());
+            file.seek(randomLocation);
+            // seek back to the first newline (or the beginning of the file
+            while (file.readChar() != '\n' || file.getFilePointer() != 0) {
+                file.seek(-4);
+            }
+            // read from the file
+            return file.readLine();
+        }
     }
 }
 
