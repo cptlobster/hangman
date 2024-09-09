@@ -1,10 +1,28 @@
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.UUID;
 
 public class Server {
     public static void main(String[] args) throws IOException {
-        System.out.println(getRandomWord());
+        ArrayList<GameState> states = new ArrayList<GameState>();
+        try (ServerSocket server = new ServerSocket(8888)) {
+            server.setReuseAddress(true);
+
+            while (true) {
+                Socket client = server.accept();
+
+                System.out.printf("New client connected: %s%n", client.getInetAddress().getHostAddress());
+
+                ClientHandler clientSocket = new ClientHandler(client);
+
+                new Thread(clientSocket).start();
+            }
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -41,11 +59,28 @@ public class Server {
     }
 }
 
+class ClientHandler implements Runnable {
+    private final Socket client;
+
+    public ClientHandler(Socket client) {
+        this.client = client;
+    }
+
+    public void run() {
+        PrintWriter out = null;
+        BufferedReader in = null;
+        try {
+            // TODO: setup protocol
+        }
+    }
+}
+
 /**
  * Internal representation of game state. Provides functions for interacting with internal variables, and handles
  * obfuscating the word when read.
  */
 class GameState {
+    private final String uuid;
     // The word we want to guess
     private final String word;
     private int guesses = 10;
@@ -55,6 +90,7 @@ class GameState {
     boolean[] lettersInWord = new boolean[26];
 
     public GameState(String word) {
+        this.uuid = UUID.randomUUID().toString();
         this.word = word;
         // set our lettersInWord array properly
         for (int i = 0; i < lettersInWord.length; i++) {
@@ -63,6 +99,10 @@ class GameState {
                 lettersInWord[i] = true;
             }
         }
+    }
+
+    public String getUuid() {
+        return uuid;
     }
 
     /**
