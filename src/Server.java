@@ -44,7 +44,7 @@ public class Server {
      */
     private static String getRandomWord() throws IOException {
         // RandomAccessFile allows us to efficiently access a random position in a file
-        try (RandomAccessFile file = new RandomAccessFile(new File("words.txt"), "r")) {
+        try (RandomAccessFile file = new RandomAccessFile(new File("words-1.txt"), "r")) {
             // pick a random byte in the file to select from and seek to it
             long randomLocation = (long) (Math.random() * file.length());
             file.seek(randomLocation);
