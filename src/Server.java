@@ -111,6 +111,24 @@ class ClientHandler implements Runnable {
         try (PrintWriter out = new PrintWriter(client.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()))) {
 
+            // a brief explanation of our communication protocol:
+            // Each step of the program sends a line back and forth between the client and server; the server starts
+            // by sending the game state to the client, and the client responds with a single character (its guess).
+            // The server state is always represented as three values separated by semicolons, for example:
+            // -2;10;______
+            // ^  ^  ^----- the letters available in the word
+            // |  --------- the amount of guesses left
+            // ------------ the status response; more on this in a second
+            // When the client responds (for example with "s"), the state is updated:
+            // 2;10;_ss___
+            //
+            // The status value is set as follows:
+            // -3: Game ends, win/loss is determined by if guesses == 0.
+            // -2: No state change or invalid client response. Initial status sent.
+            // -1: Letter already guessed.
+            // 0: Letter not found in word.
+            // any value > 0: Letter found in word, amount indicates how many times this letter appears.
+
             sendStatus(out, -2);
 
             String line;
