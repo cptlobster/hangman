@@ -1,21 +1,41 @@
+// dthomas18@hawk.iit.edu
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.UUID;
+import java.util.*;
 
 public class Server {
+    private static ArrayList<String> index;
+
     public static void main(String[] args) throws IOException {
-        ArrayList<GameState> states = new ArrayList<GameState>();
-        try (ServerSocket server = new ServerSocket(8888)) {
+        // Attempts to read a port number as the first argument, otherwise defaults to port 8888
+        int PORT = 8888;
+        if (args.length == 1) {
+            PORT = Integer.parseInt(args[0]);
+        }
+        else if (args.length != 0) {
+            System.out.println("Usage: java Server [<port>]");
+            System.out.println("If port is not included, defaults to 8888.");
+            System.exit(1);
+        }
+
+        System.out.println("Indexing words file...");
+        index = indexFile();
+        System.out.printf("%d words found.%n", index.size());
+
+        try (ServerSocket server = new ServerSocket(PORT)) {
             server.setReuseAddress(true);
+
+            System.out.println("Hangman server active! Listening on port " + PORT);
 
             while (true) {
                 Socket client = server.accept();
 
-                System.out.printf("New client connected: %s%n", client.getInetAddress().getHostAddress());
+                GameState state = startGame();
 
-                ClientHandler clientSocket = new ClientHandler(client);
+                System.out.printf("[%s] New client connected: %s%n", state.getUuid(), client.getInetAddress().getHostAddress());
+
+                ClientHandler clientSocket = new ClientHandler(client, state);
 
                 new Thread(clientSocket).start();
             }
@@ -40,38 +60,86 @@ public class Server {
     }
 
     /**
-     * Select a random word from our words.txt file.
+     * Read all the words from the file.
      */
-    private static String getRandomWord() throws IOException {
-        // RandomAccessFile allows us to efficiently access a random position in a file
-        try (RandomAccessFile file = new RandomAccessFile(new File("words-1.txt"), "r")) {
-            // pick a random byte in the file to select from and seek to it
-            long randomLocation = (long) (Math.random() * file.length());
-            file.seek(randomLocation);
-            // seek back to the first newline (or the beginning of the file, whichever comes first)
-            while (file.getFilePointer() != 0 && (char) file.readByte() != '\n') {
-                randomLocation--;
-                file.seek(randomLocation);
+    private static ArrayList<String> indexFile() throws IOException {
+        ArrayList<String> words = new ArrayList<>();
+
+        // I didn't want to load the entire file into memory, but this seems to be the best way.
+        // The RandomAccessFile method I had tried before was biased towards larger words.
+        try (Scanner sc = new Scanner(new File("words-1.txt"))) {
+            while (sc.hasNextLine()) {
+                words.add(sc.nextLine());
             }
-            // read the word from the file
-            return file.readLine();
         }
+
+        return words;
+    }
+
+    /**
+     * Select a random word.
+     */
+    private static String getRandomWord() {
+        Random rand = new Random();
+        return index.get(rand.nextInt(index.size()));
+//        // RandomAccessFile allows us to efficiently access a random position in a file
+//        try (RandomAccessFile file = new RandomAccessFile(new File("words-1.txt"), "r")) {
+//            // pick a random byte in the file to select from and seek to it
+//            long randomLocation = (long) (Math.random() * file.length());
+//            file.seek(randomLocation);
+//            // seek back to the first newline (or the beginning of the file, whichever comes first)
+//            while (file.getFilePointer() != 0 && (char) file.readByte() != '\n') {
+//                randomLocation--;
+//                file.seek(randomLocation);
+//            }
+//            // read the word from the file
+//            return file.readLine();
+//        }
     }
 }
 
 class ClientHandler implements Runnable {
     private final Socket client;
+    private GameState state;
 
-    public ClientHandler(Socket client) {
+    public ClientHandler(Socket client, GameState state) {
         this.client = client;
+        this.state = state;
     }
 
     public void run() {
-        PrintWriter out = null;
-        BufferedReader in = null;
-        try {
-            // TODO: setup protocol
+        try (PrintWriter out = new PrintWriter(client.getOutputStream(), true);
+            BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()))) {
+
+            sendStatus(out, 0);
+
+            String line;
+            int status;
+            while ((line = in.readLine()) != null) {
+                status = -2;
+                if (line.length() == 1) {
+                    char letter = line.charAt(0);
+                    if (letter >= 'a' && letter <= 'z') {
+                        status = state.guess(letter);
+                    }
+                }
+                if (state.wordGuessed() || state.getGuesses() == 0) {
+                    status = -3;
+                }
+                sendStatus(out, status);
+                if (status == -3) { break; }
+            }
         }
+        catch (IOException e) {
+            e.printStackTrace();
+        }
+        finally {
+            System.out.printf("[%s] Client disconnected.%n", state.getUuid());
+        }
+    }
+
+    private void sendStatus(PrintWriter out, int status) {
+        out.printf("%d;%d;%s%n", status, state.getGuesses(), state.getWord());
     }
 }
 
@@ -181,7 +249,7 @@ class GameState {
         else {
             guessedLetters[getPosForLetter(letter)] = true;
             if (isInWord(letter)) {
-                return 1;
+                return word.length() - word.replaceAll(String.valueOf(letter),"").length();
             } else {
                 guesses--;
                 return 0;
