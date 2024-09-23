@@ -111,7 +111,7 @@ class ClientHandler implements Runnable {
         try (PrintWriter out = new PrintWriter(client.getOutputStream(), true);
             BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()))) {
 
-            sendStatus(out, 0);
+            sendStatus(out, -2);
 
             String line;
             int status;

@@ -13,22 +13,33 @@ public class Client {
             System.exit(1);
         }
 
+        String HOST = args[0];
+        int PORT = 8888;
+
+        if (args.length == 2) {
+            PORT = Integer.parseInt(args[1]);
+        }
+
         boolean p = true;
 
         IOManager sp = new IOManager();
         while (p) {
-            try (Socket socket = new Socket("localhost", 8888);
+            try (Socket socket = new Socket(HOST, PORT);
                  PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                  BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));) {
 
                 String line;
+                boolean c = true;
                 while ((line = in.readLine()) != null) {
-                    boolean c = sp.handleState(line);
+                    c = sp.handleState(line);
 
                     if (c) {
                         String response = String.valueOf(sp.prompt());
                         out.println(response);
                     }
+                }
+                if (c) {
+                    System.out.println("Lost connection to server.");
                 }
             }
             p = sp.promptContinue();
